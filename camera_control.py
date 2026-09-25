@@ -7,11 +7,11 @@ from flask import Flask, Response, render_template_string, send_file
 # ==================== KONFIGURATION ====================
 CAM_IP = "192.168.0.35"
 CAM_USER = "admin"
-CAM_PASS = "DEIN_PASSWORT"
+CAM_PASS = "PASSWORT"
 FLASK_PORT = 5000
 # =======================================================
 
-BASE_URL = f"http://{CAM_IP}"
+BASE_URL = f"http://{CAM_IP}/cgi-bin"
 
 # Zuordnung aller verfügbaren Foscam/LogiLink CGI-Befehle
 COMMANDS = {
@@ -69,16 +69,35 @@ def get_snapshot_bytes():
     return None
 
 def generate_mjpeg_stream():
-    """Liest den MJPEG-Stream der Kamera aus und reicht ihn an den Browser weiter."""
+    """Liest den MJPEG-Stream der Kamera aus und reicht ihn Frames-weise an den Browser weiter."""
     url = f"{BASE_URL}/videostream.cgi"
     params = {"user": CAM_USER, "pwd": CAM_PASS}
+    
     try:
-        # Stream öffnen mit stream=True
+        # stream=True ist essenziell für kontinuierlichen Empfang
         with requests.get(url, params=params, stream=True, timeout=10) as r:
+            if r.status_code != 200:
+                print(f"[STREAM FEHLER] Kamera antwortet mit Status code: {r.status_code}")
+                return
+
+            # Wir lesen den Stream chunk-weise aus
+            bytes_buffer = b''
             for chunk in r.iter_content(chunk_size=1024):
-                yield chunk
+                bytes_buffer += chunk
+                
+                # Suchen nach JPEG-Start (0xff 0xd8) und Ende (0xff 0xd9)
+                a = bytes_buffer.find(b'\xff\xd8')
+                b = bytes_buffer.find(b'\xff\xd9')
+                
+                if a != -1 and b != -1:
+                    jpg = bytes_buffer[a:b+2]
+                    bytes_buffer = bytes_buffer[b+2:]
+                    
+                    # Einzelnes JPEG-Frame im MJPEG-Standardformat senden
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + jpg + b'\r\n')
     except Exception as e:
-        print(f"[STREAM FEHLER] Stream unterbrochen: {e}")
+        print(f"[STREAM FEHLER] Verbindung abgebrochen: {e}")
 
 # ==================== FLASK WEB-GUI ====================
 app = Flask(__name__)
@@ -155,8 +174,11 @@ def index():
 
 @app.route('/video_feed')
 def video_feed():
-    """Streamt das Live-Video über MJPEG im Browser."""
-    return Response(generate_mjpeg_stream(), mimetype='multipart/x-mixed-replace; boundary=123456789000000000000987654321')
+    """Streamt das Live-Video sauber im Browser."""
+    return Response(
+        generate_mjpeg_stream(), 
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )
 
 @app.route('/snapshot')
 def snapshot():
