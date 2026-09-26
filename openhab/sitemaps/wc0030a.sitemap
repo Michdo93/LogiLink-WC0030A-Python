@@ -1,0 +1,26 @@
+sitemap wc0030a label="Kamera WC0030A" {
+    Frame label="Live" {
+        // Flask-Oberfläche auf dem Pi reicht den MJPEG-Stream ohne Kamera-Passwort durch
+        Video url="http://192.168.0.10:5000/video_feed" encoding="mjpeg"
+        Image item=Cam_Snapshot
+        Text  item=Cam_SnapshotTime
+        Switch item=Cam_SnapshotCmd mappings=[NOW="Neues Bild"]
+    }
+    Frame label="Steuerung" {
+        Switch item=Cam_PTZ label="" mappings=[UP_LEFT="↖", UP="▲", UP_RIGHT="↗"]
+        Switch item=Cam_PTZ label="" mappings=[LEFT="◀", CENTER="●", RIGHT="▶"]
+        Switch item=Cam_PTZ label="" mappings=[DOWN_LEFT="↙", DOWN="▼", DOWN_RIGHT="↘"]
+        Switch item=Cam_Preset mappings=[1="1", 2="2", 3="3", 4="4", 5="5", 6="6", 7="7", 8="8", 9="9"]
+        Switch item=Cam_Patrol mappings=[HORIZONTAL="Horizontal", VERTICAL="Vertikal", STOP="Aus"]
+        Switch item=Cam_Relay
+    }
+    Frame label="Status" {
+        Text item=Cam_Motion
+        Text item=Cam_Alarm
+        Text item=Cam_Resolution
+        Text item=Cam_Framerate
+        Text item=Cam_SdFree
+        Text item=Cam_Firmware
+        Text item=Cam_LastError visibility=[Cam_LastError!=""]
+    }
+}

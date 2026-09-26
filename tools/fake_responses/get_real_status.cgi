@@ -1,0 +1,17 @@
+var ret_realstatus_result=1;
+var ret_realstatus_upnp=0;
+var ret_realstatus_ddns=0;
+var ret_realstatus_ddnsaddr='http://g0385.oipcam.com:80';
+var ret_realstatus_time=1691116876;
+var ret_realstatus_ipaddr='192.168.0.35';
+var ret_realstatus_videoW=1280;
+var ret_realstatus_videoH=720;
+var ret_realstatus_result2=1;
+var ret_realstatus_mrate=20;
+var ret_realstatus_srate=20;
+var ret_realstatus_defbs=0;
+var ret_realstatus_alstatus=0;
+var ret_realstatus_motion=0;
+var ret_realstatus_inputal1=0;
+var ret_realstatus_inputal2=0;
+var ret_realstatus_sdalarm=0;

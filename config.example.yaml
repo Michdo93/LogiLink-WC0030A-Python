@@ -1,0 +1,25 @@
+# Kopieren nach config.yaml (liegt in .gitignore) und anpassen.
+camera:
+  host: 192.168.0.35
+  port: 80
+  user: admin
+  password: "geheim"
+  invert_v: false        # true bei Überkopfmontage
+  invert_h: false
+  step_seconds: 0.4      # Dauer eines Einzelschritts (ptz step / MQTT cmd/ptz)
+
+mqtt:
+  host: localhost        # mosquitto auf dem Pi
+  port: 1883
+  user: ""
+  password: ""
+  base_topic: wc0030a
+  poll_fast: 2           # Bewegung/Alarm
+  poll_slow: 60          # Geräteinfo, SD-Karte
+  snapshot_interval: 0   # 0 = nur auf Befehl / bei Bewegung
+  snapshot_on_motion: true
+  allow_raw: false       # cmd/raw freischalten (nur zum Testen)
+
+web:
+  host: 0.0.0.0
+  port: 5000

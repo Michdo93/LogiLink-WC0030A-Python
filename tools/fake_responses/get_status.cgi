@@ -1,0 +1,11 @@
+var ret_video_port=38401;
+var ret_rtsp_port=554;
+var ret_alias_name='IP CAMERA';
+var ret_prot_mode='APM-H803-MPC';
+var ret_client_version='17.14.5.45';
+var ret_server_version='83.2.5.69c3';
+var ret_mvideo_w=1280;
+var ret_mvideo_h=720;
+var ret_lamp_status=0;
+var ret_scene_mtype=1;
+var ret_scene_stype=32;
