@@ -48,6 +48,8 @@ PAGE = r"""<!doctype html>
   .hint { color:var(--dim); font-size:.82rem; margin:.5rem 0 0; }
   dl { display:grid; grid-template-columns:auto 1fr; gap:.25rem .8rem; margin:0; font-size:.88rem; }
   dt { color:var(--dim); } dd { margin:0; }
+  .slider { display:grid; grid-template-columns:7rem 1fr 2.5rem; align-items:center; gap:.5rem; font-size:.88rem; margin-bottom:.3rem; }
+  .slider output { text-align:right; color:var(--dim); }
   #msg { min-height:1.2em; font-size:.85rem; color:var(--dim); margin-top:.6rem; }
   #msg.err { color:var(--warn); }
 </style>
@@ -96,6 +98,15 @@ PAGE = r"""<!doctype html>
       </div>
     </section>
     <section>
+      <h2>Bild und Geschwindigkeit</h2>
+      <div id="image"></div>
+      <div class="row" style="margin-top:.4rem">
+        <label><input type="checkbox" id="img_mirror"> Spiegeln</label>
+        <label><input type="checkbox" id="img_flip"> Drehen</label>
+        <label>Netz <select id="img_aec_value"><option value="1">50 Hz</option><option value="2">60 Hz</option><option value="3">Außen</option></select></label>
+      </div>
+    </section>
+    <section>
       <h2>Status</h2>
       <dl id="status"></dl>
     </section>
@@ -132,6 +143,29 @@ fetch('/api/presets').then(r=>r.json()).then(j => {
       api('/api/preset/'+i+(save?'/set':'/goto')).then(()=>{ if(save) show('Position '+i+' gespeichert'); });
     };
     box.appendChild(b);
+  }
+});
+// Bildparameter (Namen wie in get_camera_vars.cgi)
+const SLIDERS = [['brightness','Helligkeit',0,255],['contrast','Kontrast',0,255],
+                 ['hue','Farbton',-128,127],['saturation','Sättigung',0,200],['ptzspeed','PTZ-Tempo',1,100]];
+fetch('/api/camera_vars').then(r=>r.json()).then(j => {
+  if(!j.ok){ show(j.error, true); return; }
+  const v = j.vars, box = document.getElementById('image');
+  for(const [k,label,min,max] of SLIDERS){
+    if(!(k in v)) continue;
+    const row = document.createElement('label'); row.className = 'slider';
+    row.innerHTML = `<span>${label}</span><input type="range" min="${min}" max="${max}" value="${v[k]}"><output>${v[k]}</output>`;
+    const inp = row.querySelector('input'), out = row.querySelector('output');
+    inp.oninput = () => out.textContent = inp.value;
+    inp.onchange = () => api(`/api/camera_vars/${k}/${inp.value}`);
+    box.appendChild(row);
+  }
+  const hz = document.getElementById('img_aec_value');
+  hz.value = v.aec_value; hz.onchange = () => api(`/api/camera_vars/aec_value/${hz.value}`);
+  for(const k of ['mirror','flip']){
+    const cb = document.getElementById('img_'+k);
+    cb.checked = +v[k] === 1;
+    cb.onchange = () => api(`/api/camera_vars/${k}/${cb.checked?1:0}`);
   }
 });
 // Status
@@ -241,6 +275,17 @@ def create_app(cam: Camera) -> Flask:
     @app.post("/api/relay/<state>")
     def relay(state):
         return run(cam.io_output, state == "on")
+
+    @app.get("/api/camera_vars")
+    def camera_vars():
+        try:
+            return jsonify(ok=True, vars=cam.camera_vars())
+        except CameraError as exc:
+            return jsonify(ok=False, error=str(exc)), 502
+
+    @app.post("/api/camera_vars/<name>/<int(signed=True):value>")
+    def set_camera_var(name, value):
+        return run(cam.set_camera_var, name, int(value))
 
     @app.get("/api/status")
     def status():

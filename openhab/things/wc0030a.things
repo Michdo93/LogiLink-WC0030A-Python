@@ -30,6 +30,23 @@ Bridge mqtt:broker:camBroker "Mosquitto (Kamera-Pi)" [ host="192.168.0.10", port
         Type number   : presetSet     "Position speichern"[ commandTopic="wc0030a/cmd/preset/set" ]
         Type string   : patrol        "Patrouille"        [ stateTopic="wc0030a/state/patrol", commandTopic="wc0030a/cmd/patrol" ]
         Type switch   : relay         "Relais"            [ stateTopic="wc0030a/state/relay",  commandTopic="wc0030a/cmd/relay" ]
+        Type number   : cruise        "Kurs"              [ commandTopic="wc0030a/cmd/cruise" ]
+
+        // Bewegungserkennung der Kamera
+        Type switch   : detection     "Bewegungserkennung"[ stateTopic="wc0030a/state/motion/enable", commandTopic="wc0030a/cmd/motion/enable" ]
+        Type number   : sensitivity   "Empfindlichkeit"   [ stateTopic="wc0030a/state/motion/level",  commandTopic="wc0030a/cmd/motion/level", min=1, max=5 ]
+
+        // Bild
+        Type number   : brightness    "Helligkeit"        [ stateTopic="wc0030a/state/camera/brightness", commandTopic="wc0030a/cmd/camera/brightness", min=0, max=255 ]
+        Type number   : contrast      "Kontrast"          [ stateTopic="wc0030a/state/camera/contrast",   commandTopic="wc0030a/cmd/camera/contrast",   min=0, max=255 ]
+        Type number   : saturation    "Sättigung"         [ stateTopic="wc0030a/state/camera/saturation", commandTopic="wc0030a/cmd/camera/saturation", min=0, max=200 ]
+        Type number   : hue           "Farbton"           [ stateTopic="wc0030a/state/camera/hue",        commandTopic="wc0030a/cmd/camera/hue",        min=-128, max=127 ]
+        Type number   : ptzSpeed      "PTZ-Tempo"         [ stateTopic="wc0030a/state/camera/ptzspeed",   commandTopic="wc0030a/cmd/camera/ptzspeed",   min=1, max=100 ]
+        Type switch   : mirror        "Spiegeln"          [ stateTopic="wc0030a/state/camera/mirror",     commandTopic="wc0030a/cmd/camera/mirror", on="1", off="0" ]
+        Type switch   : flip          "Drehen"            [ stateTopic="wc0030a/state/camera/flip",       commandTopic="wc0030a/cmd/camera/flip",   on="1", off="0" ]
+        Type number   : osdColor      "OSD-Farbe"         [ stateTopic="wc0030a/state/camera/OSDTimer",   commandTopic="wc0030a/cmd/camera/OSDTimer" ]
+        Type number   : mainsHz       "Netzfrequenz"      [ stateTopic="wc0030a/state/camera/aec_value",  commandTopic="wc0030a/cmd/camera/aec_value" ]
+        Type number   : lamp          "Status-LED"        [ stateTopic="wc0030a/state/lamp",              commandTopic="wc0030a/cmd/lamp" ]
     }
 }
 
@@ -39,5 +56,6 @@ Bridge mqtt:broker:camBroker "Mosquitto (Kamera-Pi)" [ host="192.168.0.10", port
 // Thing ipcamera:httponly:wc0030a "WC0030A Video" @ "Smart Home Lab" [
 //     ipAddress="192.168.0.35",
 //     snapshotUrl="http://192.168.0.35/cgi-bin/video_snapshot.cgi?user=admin&pwd=GEHEIM",
+//     ffmpegInput="rtsp://192.168.0.35:554/live/av0?user=admin&passwd=GEHEIM",
 //     mjpegUrl="http://192.168.0.35/cgi-bin/videostream.cgi?user=admin&pwd=GEHEIM"
 // ]

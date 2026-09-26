@@ -6,7 +6,7 @@ camera:
   password: "geheim"
   invert_v: false        # true bei Überkopfmontage
   invert_h: false
-  step_seconds: 0.4      # Dauer eines Einzelschritts (ptz step / MQTT cmd/ptz)
+  step_seconds: 0.5      # Einzelschritt (ptz step / MQTT cmd/ptz), wie mobile.htm
 
 mqtt:
   host: localhost        # mosquitto auf dem Pi

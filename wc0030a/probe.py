@@ -41,8 +41,7 @@ PARAM_RE = re.compile(r"[?&](\w+)=")
 DECODER_RE = re.compile(r"decoder_control\.cgi\?command=['\"]?\s*\+?\s*(\w+)", re.I)
 CALL_NUM_RE = re.compile(r"""on(?:mousedown|mouseup|click|touchstart|touchend)\s*=\s*["']([^"']*?\(\s*\d+[^"']*)["']""", re.I)
 
-RTSP_PATHS = ["/11", "/12", "/live/ch0", "/live/ch1", "/ch0", "/ch1", "/live.sdp",
-              "/h264", "/stream1", "/0", "/1", "/"]
+RTSP_PATHS = ["/live/av0", "/live/av1"]  # av0 aus vlc_video.htm, av1 vermutlich Substream
 
 
 def _fetch(cam: Camera, page: str) -> requests.Response | None:
@@ -171,6 +170,17 @@ def run(cam: Camera, out_dir: str = "probe_out") -> Path:
     except (TypeError, ValueError):
         rtsp_port = 554
     rtsp = rtsp_probe(cam.host, rtsp_port)
+
+    # Einstellungsgruppen (get_params braucht ?type=1..14)
+    for t in C.PARAM_TYPES:
+        key = f"get_params.cgi?type={t}"
+        try:
+            text = cam.raw("get_params.cgi", type=t)
+            (out / "cgi" / f"get_params_type{t}.cgi").write_text(redact(text), encoding="utf-8")
+            status[key] = _redact_obj(cam.get_vars("get_params.cgi", type=t))
+        except CameraError as exc:
+            status[key] = {"error": str(exc)}
+    (out / "status.json").write_text(json.dumps(status, indent=2, ensure_ascii=False), encoding="utf-8")
 
     lines = ["# Probe-Bericht WC0030A", ""]
     st = status.get("get_status.cgi", {})

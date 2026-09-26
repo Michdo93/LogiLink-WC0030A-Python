@@ -2,7 +2,7 @@
 
 Steuerung der Pan/Tilt-IP-Kamera **LogiLink WC0030A** per Python – als Bibliothek, Kommandozeile, Weboberfläche und MQTT-Brücke für openHAB.
 
-Die WC0030A ist ein OEM-Gerät von Apexis. Die Kamera meldet sich in `get_status.cgi` als **APM-H803-MPC** (Firmware `83.2.5.69c3`, WebUI `17.14.5.45`, Sensor OV9710, 1280×720). Die HTTP-Schnittstelle entspricht in den Grundzügen dem Foscam-MJPEG-CGI-SDK, weicht aber an einigen Stellen ab – siehe [Stand der Befehle](#stand-der-befehle).
+Die WC0030A ist ein OEM-Gerät von Apexis. Die Kamera meldet sich in `get_status.cgi` als **APM-H803-MPC** (Firmware `83.2.5.69c3`, WebUI `17.14.5.45`, Sensor OV9710, 1280×720). Die CGI-Schnittstelle ist **nicht** Foscam-kompatibel; alle Befehle hier sind aus der Weboberfläche der Kamera selbst entnommen – siehe [CGI-Referenz](#cgi-referenz).
 
 ## Installation
 
@@ -21,7 +21,7 @@ Die Zugangsdaten stehen nicht mehr im Code. Reihenfolge: Defaults < `config.yaml
 ```bash
 python -m wc0030a status                 # Geräte- und Laufzeitstatus als JSON
 python -m wc0030a status --all           # alle lesenden CGIs
-python -m wc0030a ptz left               # ein kurzer Schritt (camera.step_seconds)
+python -m wc0030a ptz left               # 0,5 s fahren, anhalten (wie mobile.htm)
 python -m wc0030a ptz left --hold 2      # 2 s fahren
 python -m wc0030a ptz up --continuous    # fahren bis ...
 python -m wc0030a stop
@@ -31,6 +31,14 @@ python -m wc0030a preset set 3
 python -m wc0030a patrol h start         # h | v | all ... start | stop
 python -m wc0030a relay on
 python -m wc0030a snapshot bild.jpg
+python -m wc0030a image                  # Bildparameter anzeigen
+python -m wc0030a image brightness=140 flip=1 hz=1 osd=0
+python -m wc0030a motion                 # Bewegungsmelder anzeigen
+python -m wc0030a motion motion_enable=1 motion_level=3
+python -m wc0030a lamp 2                 # Status-LED: 0/1 blinken, 2 aus, 3 an
+python -m wc0030a cruise list|start 0|stop
+python -m wc0030a params 2               # Einstellungsgruppe 1–14 lesen
+python -m wc0030a log
 python -m wc0030a urls                   # Snapshot-/MJPEG-/RTSP-URL für VLC, openHAB …
 python -m wc0030a raw get_camera_vars.cgi
 python -m wc0030a probe                  # Kamera erkunden (siehe unten)
@@ -91,7 +99,14 @@ Beispieldateien liegen in `openhab/` (Things, Items, Sitemap, MAP-Transformation
 | `wc0030a/cmd/relay` | ← | `ON` / `OFF` |
 | `wc0030a/cmd/snapshot` | ← | beliebig → neues Bild |
 | `wc0030a/cmd/refresh` | ← | alle Zustände neu lesen |
-| `wc0030a/cmd/camera_vars` | ← | JSON → `set_camera_vars.cgi` (Namen per `probe` klären) |
+| `wc0030a/state/motion/enable`, `motion/level`, `motion/timeout` | → | Einstellungen der Bewegungserkennung |
+| `wc0030a/cmd/camera_vars` | ← | JSON, z. B. `{"brightness": 140, "flip": 1}` |
+| `wc0030a/cmd/camera/<name>` | ← | Einzelwert: `brightness` `contrast` `hue` `saturation` `ptzspeed` `mirror` `flip` `OSDTimer` `aec_value` (`ON`/`OFF` für 0/1) |
+| `wc0030a/cmd/motion/enable` | ← | `ON` / `OFF` – Bewegungserkennung der Kamera |
+| `wc0030a/cmd/motion/level` | ← | `1`–`5` Empfindlichkeit |
+| `wc0030a/cmd/motion/timeout` | ← | `0`–`5` (dauerhaft, 5/10/15/30/60 s) |
+| `wc0030a/cmd/lamp` | ← | `0`–`3` Status-LED |
+| `wc0030a/cmd/cruise` | ← | Kursindex starten, `STOP` |
 | `wc0030a/cmd/reboot` | ← | `REBOOT` |
 | `wc0030a/cmd/raw` | ← | `{"cgi": "...", "params": {...}}`, nur mit `mqtt.allow_raw: true` |
 
@@ -110,42 +125,55 @@ sudo cp systemd/wc0030a-mqtt.service systemd/wc0030a-web.service /etc/systemd/sy
 sudo systemctl enable --now wc0030a-mqtt wc0030a-web
 ```
 
-## Stand der Befehle
+## CGI-Referenz
 
-Grundlage: der Web-Dump der Kamera (`cgi-bin`-Liste, `model.js`, Sprachdatei) und das Foscam-MJPEG-SDK.
+Quelle: Weboberfläche der Kamera (`live.htm`, `mobile.htm`, `osdset.htm`, `setmenu/*.htm`), mit `python -m wc0030a probe` heruntergeladen. Authentifizierung überall per `user=…&pwd=…`.
 
-| Funktion | Aufruf | Stand |
+### PTZ: `decoder_control.cgi?type=T&cmd=C`
+
+| type | Bedeutung | cmd |
 |---|---|---|
-| Status, Laufzeitstatus, SD, Presets, Zeitpläne, Kurse | `get_*.cgi` → JS-Variablen | aus dem Dump belegt, Parser getestet |
-| Schwenken/Neigen | `decoder_control.cgi?command=0…7` (Start/Stopp je Richtung) | Foscam-Standard; Buttons in der Sprachdatei vorhanden |
-| Diagonalen | `command=90…93` | Foscam-Standard; **die alte Version nutzte 9/11/13/15** |
-| Mitte, Patrouillen | `25`, `26/27`, `28/29` | Foscam-Standard |
-| Presets | setzen `30+2(n−1)`, anfahren `31+2(n−1)` | Kamera meldet 9 Presets (`get_preset_status`) |
-| Relais | `94` / `95` | Foscam-Standard |
-| Snapshot | `video_snapshot.cgi`, Fallback `mobile_snapshot.cgi`, `/snapshot.cgi` | **`snapshot.cgi` fehlt in der cgi-bin-Liste dieser Firmware** |
-| MJPEG | `videostream.cgi` | in der Liste vorhanden |
-| Bildparameter | `get_camera_vars.cgi` / `set_camera_vars.cgi` | **`camera_control.cgi` gibt es auf dieser Firmware nicht**; Parameternamen per `probe` klären |
-| Status-LED | `set_lamp.cgi` (Menü „Indikator“) | Parameternamen per `probe` klären |
-| RTSP | Port 554 laut `get_status` | Pfad per `probe` klären |
-| Kurse (Preset-Touren) | `get_list_cruise.cgi`, `get_cruise.cgi`, `set_cruise.cgi`, `control_cruise.cgi` | lesen implementiert, schreiben per `raw` |
+| 0 | Bewegung | 0 hoch, 1 runter, 2 links, 3 rechts, 13 links-oben, 14 links-unten, 15 rechts-oben, 16 rechts-unten, **10 Stopp**, 11 Mitte, 12 Auto aus, 17/18 Patrouille horizontal/vertikal, 19/20 deren Stopp |
+| 1 | Preset speichern | 0–8 (Preset 1–9) |
+| 2 | Preset anfahren | 0–8 |
+| 3 | Schaltausgang | 1 an, 0 aus |
 
-Laut `model.js` hat das Modell APM-H803-MPC weder Zoom, Fokus noch Iris, und keine PTZ-Protokolleinstellung (RS485). Infrarot-Steuerung taucht in der Weboberfläche nicht auf; die IR-LEDs schalten automatisch.
+Bewegungen laufen, bis Stopp (`type=0&cmd=10`) kommt. Die Browser-Oberfläche sendet Stopp beim Loslassen, die Mobil-Oberfläche 500 ms nach dem Start. cmd 4–9 (Fokus, Zoom, Iris) existieren im Protokoll, das Modell hat die Hardware aber nicht.
 
-### Die fehlenden Befehle ermitteln: `probe`
+### Bild: `set_camera_vars.cgi?type=T&value=V`
 
-Im Dump fehlen genau die Seiten mit der Steuerlogik (`ffserver.htm`, `mobile.htm`, die Einstellungsseiten), und `get_camera_vars.cgi` / `get_params.cgi` kamen leer zurück, weil ohne Login abgerufen. `probe` holt das nach – **nur lesend**, es werden keine `set_*.cgi` aufgerufen:
+Lesen mit `get_camera_vars.cgi`.
 
-```bash
-python -m wc0030a probe
-```
+| type | Variable | Bereich |
+|---|---|---|
+| 1 | `OSDTimer` | OSD-Farbe: 0 aus, 1 schwarz, 2 rot, 3 grün, 4 blau, 5 lila, 6 grau, 7 silber, 8 gelb, 9 oliv, 10 türkis, 11 weiß, 12 hellblau |
+| 2 | `brightness` | 0–255 |
+| 3 | `contrast` | 0–255 |
+| 4 | `hue` | −128–127 |
+| 5 | `saturation` | 0–200 |
+| 6 | `ptzspeed` | 1–100 |
+| 7 | `mirror` | 0/1 |
+| 8 | `flip` | 0/1 |
+| 9 | `aec_value` | 1 = 50 Hz, 2 = 60 Hz, 3 = Außenbereich |
 
-Ergebnis: `probe_out/` und `probe_out.zip` mit
+### Weitere
 
-- allen `get_*.cgi`-Antworten mit Login (Passwörter und Schlüssel geschwärzt),
-- allen erreichbaren `.htm`/`.js`-Seiten der Kamera,
-- `report.md`: jeder CGI-Aufruf aus der Weboberfläche mit seinen Parameternamen, alle `decoder_control`-Stellen, alle Button-Handler mit Befehlsnummern, RTSP-Pfadtest (`404` = gibt es nicht, `401`/`200` = gibt es).
+| Funktion | Aufruf |
+|---|---|
+| Snapshot | `video_snapshot.cgi` (Browser), `mobile_snapshot.cgi` (Mobil) |
+| MJPEG | `videostream.cgi` |
+| RTSP (H.264) | `rtsp://<ip>:554/live/av0?user=…&passwd=…` – Parameter heißt `passwd`, nicht `pwd` |
+| Status-LED | `set_lamp.cgi?type=0…3` |
+| Bewegungsmelder lesen | `get_params.cgi?type=2` → `motion_Enable`, `byMotionSensitive`, `mtimeout`, `msdrec_enable`, `mmail_enable`, `mftp_enable`, `malarmout_enable` |
+| Bewegungsmelder setzen | `set_motion_alarm.cgi` mit allen Werten: `motion_enable`, `motion_level` (1–5), `mtimeout` (0–5), `start_x=0&start_y=0&end_x=320&end_y=240`, `msdrec_enable`, `mmail_enable`, `mftp_enable`, `malarmout_enable` |
+| Kurs starten/stoppen | `control_cruise.cgi?index=N`, Stopp mit `index=100` |
+| Einstellungsgruppen | `get_params.cgi?type=1…14` (1 Benutzer, 2 Alarm, 3 Audio, 4 Gerät, 5 FTP, 6 Multi-Gerät, 7 Netzwerk, 8 WLAN, 9 Zeit, 10 PTZ, 11 E-Mail, 12 Video, 13 Netzwerk/DDNS, 14 SD) |
+| Log | `get_log_page.cgi?line=20`, `get_log_info.cgi?page=N&line=20` |
+| Log-Eintrag schreiben | `write_log.cgi?type=N` (nur Protokoll, keine Steuerung) |
 
-Damit lassen sich die offenen Punkte der Tabelle schließen.
+Die übrigen Setter (`set_video`, `set_audio`, `set_ftp`, `set_smtp`, `set_datetime` …) stehen mit ihren Parametern in `probe_out/report.md` und sind über `python -m wc0030a raw <cgi> key=value …` erreichbar. Netzwerk-, Benutzer- und WLAN-Setter sowie Reboot/Reset/Format sind gesperrt und brauchen `--force`.
+
+`probe` sichert zusätzlich alle `get_params`-Gruppen (Passwörter geschwärzt).
 
 ## Entwickeln ohne Kamera
 

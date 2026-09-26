@@ -20,3 +20,18 @@ Number   Cam_Preset      "Position"                <zoom>         (gCam) { chann
 Number   Cam_PresetSet   "Position speichern"      <zoom>         (gCam) { channel="mqtt:topic:camBroker:wc0030a:presetSet", autoupdate="false" }
 String   Cam_Patrol      "Patrouille [%s]"         <flow>         (gCam) { channel="mqtt:topic:camBroker:wc0030a:patrol" }
 Switch   Cam_Relay       "Relais"                  <poweroutlet>  (gCam) { channel="mqtt:topic:camBroker:wc0030a:relay" }
+Number   Cam_Cruise      "Kurs"                    <flow>         (gCam) { channel="mqtt:topic:camBroker:wc0030a:cruise", autoupdate="false" }
+
+Switch   Cam_Detection   "Bewegungserkennung"      <motion>       (gCam) { channel="mqtt:topic:camBroker:wc0030a:detection" }
+Number   Cam_Sensitivity "Empfindlichkeit [%d]"    <motion>       (gCam) { channel="mqtt:topic:camBroker:wc0030a:sensitivity" }
+
+Number   Cam_Brightness  "Helligkeit [%d]"         <sun>          (gCam) { channel="mqtt:topic:camBroker:wc0030a:brightness" }
+Number   Cam_Contrast    "Kontrast [%d]"           <contrast>     (gCam) { channel="mqtt:topic:camBroker:wc0030a:contrast" }
+Number   Cam_Saturation  "Sättigung [%d]"          <colorwheel>   (gCam) { channel="mqtt:topic:camBroker:wc0030a:saturation" }
+Number   Cam_Hue         "Farbton [%d]"            <colorwheel>   (gCam) { channel="mqtt:topic:camBroker:wc0030a:hue" }
+Number   Cam_PTZSpeed    "PTZ-Tempo [%d]"          <movecontrol>  (gCam) { channel="mqtt:topic:camBroker:wc0030a:ptzSpeed" }
+Switch   Cam_Mirror      "Spiegeln"                <camera>       (gCam) { channel="mqtt:topic:camBroker:wc0030a:mirror" }
+Switch   Cam_Flip        "Drehen"                  <camera>       (gCam) { channel="mqtt:topic:camBroker:wc0030a:flip" }
+Number   Cam_OSDColor    "OSD-Farbe [%d]"          <text>         (gCam) { channel="mqtt:topic:camBroker:wc0030a:osdColor" }
+Number   Cam_MainsHz     "Netzfrequenz [%d]"       <energy>       (gCam) { channel="mqtt:topic:camBroker:wc0030a:mainsHz" }
+Number   Cam_Lamp        "Status-LED [%d]"         <light>        (gCam) { channel="mqtt:topic:camBroker:wc0030a:lamp" }

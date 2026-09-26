@@ -17,6 +17,14 @@ Topic-Schema (base = mqtt.base_topic, Default "wc0030a"):
   base/cmd/snapshot            beliebig -> neues Bild auf base/snapshot
   base/cmd/refresh             beliebig -> alle Zustände neu lesen
   base/cmd/camera_vars         JSON {"name": wert, ...} -> set_camera_vars.cgi
+  base/cmd/camera/<name>       Einzelwert, z. B. camera/brightness = 140, camera/flip = ON
+                               (brightness contrast hue saturation ptzspeed mirror flip
+                                OSDTimer aec_value; Aliase: osd, hz, speed)
+  base/cmd/lamp                0..3 Status-LED
+  base/cmd/motion/enable       ON | OFF  Bewegungserkennung der Kamera
+  base/cmd/motion/level        1..5      Empfindlichkeit
+  base/cmd/motion/timeout      0..5      Alarmdauer (0 dauerhaft, 1=5 s … 5=60 s)
+  base/cmd/cruise              Index -> Kurs starten, STOP
   base/cmd/reboot              REBOOT
   base/cmd/raw                 JSON {"cgi": "...", "params": {...}} (nur allow_raw)
 """
@@ -161,6 +169,35 @@ class Bridge:
                 cam.set_camera_vars(**values)
                 self.poll_camera_vars()
             return setvars
+        if sub.startswith("camera/"):
+            name = Camera._scam_name(sub.split("/", 1)[1])
+            value = int(up == "ON") if up in ("ON", "OFF") else int(float(payload))
+
+            def setone():
+                cam.set_camera_var(name, value)
+                self.poll_camera_vars()
+            return setone
+        if sub == "lamp":
+            mode = int(float(payload))
+
+            def lamp():
+                cam.set_lamp(mode)
+                self.state("lamp", mode)
+            return lamp
+        if sub in ("motion/enable", "motion/level", "motion/timeout"):
+            key = {"motion/enable": "motion_enable", "motion/level": "motion_level",
+                   "motion/timeout": "mtimeout"}[sub]
+            value = int(up == "ON") if up in ("ON", "OFF") else int(float(payload))
+
+            def motion():
+                cam.set_motion(**{key: value})
+                self.poll_motion_settings()
+            return motion
+        if sub == "cruise":
+            if up == "STOP":
+                return cam.cruise_stop
+            idx = int(float(payload))
+            return lambda: cam.cruise_start(idx)
         if sub == "reboot":
             if up != "REBOOT":
                 raise ValueError("Payload muss REBOOT lauten")
@@ -213,6 +250,20 @@ class Bridge:
             log.debug("SD-Status: %s", exc)
         self.state("presets", self.cam.preset_count())
         self.poll_camera_vars()
+        self.poll_motion_settings()
+
+    def poll_motion_settings(self) -> None:
+        try:
+            m = self.cam.motion_settings()
+        except CameraError as exc:
+            log.debug("motion_settings: %s", exc)
+            return
+        if "motion_enable" in m:
+            self.state("motion/enable", _onoff(m["motion_enable"]))
+        if "motion_level" in m:
+            self.state("motion/level", m["motion_level"])
+        if "mtimeout" in m:
+            self.state("motion/timeout", m["mtimeout"])
 
     def poll_camera_vars(self) -> None:
         try:

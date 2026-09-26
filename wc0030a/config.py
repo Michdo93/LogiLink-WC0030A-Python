@@ -9,14 +9,14 @@ from typing import Any
 
 DEFAULTS: dict[str, Any] = {
     "camera": {
-        "host": "192.168.0.2",
+        "host": "192.168.0.35",
         "port": 80,
         "user": "admin",
         "password": "",
         "timeout": 5,
         "invert_v": False,     # Überkopfmontage: oben/unten tauschen
         "invert_h": False,
-        "step_seconds": 0.4,   # Dauer einer Einzelschritt-Bewegung
+        "step_seconds": 0.5,   # Dauer einer Einzelschritt-Bewegung (wie mobile.htm)
     },
     "mqtt": {
         "host": "localhost",

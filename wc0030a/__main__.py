@@ -11,6 +11,9 @@ Beispiele:
   python -m wc0030a patrol h start
   python -m wc0030a relay on
   python -m wc0030a snapshot bild.jpg
+  python -m wc0030a image brightness=140 contrast=150
+  python -m wc0030a motion motion_enable=1 motion_level=3
+  python -m wc0030a lamp 2
   python -m wc0030a raw get_camera_vars.cgi
   python -m wc0030a probe
   python -m wc0030a web
@@ -65,7 +68,26 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("file")
 
     s = sub.add_parser("urls", help="Stream-/Snapshot-URLs ausgeben (z. B. für openHAB/VLC)")
-    s.add_argument("--rtsp-path", default="/11")
+    s.add_argument("--rtsp-path", default=C.RTSP_PATH)
+
+    s = sub.add_parser("image", help="Bildparameter lesen/setzen, z. B. brightness=128 flip=1 osd=0 hz=1")
+    s.add_argument("values", nargs="*", metavar="name=wert")
+
+    s = sub.add_parser("lamp", help="Status-LED: 0 blinkt/aus, 1 blinkt/langsam, 2 immer aus, 3 immer an")
+    s.add_argument("mode", type=int, choices=[0, 1, 2, 3])
+
+    s = sub.add_parser("motion", help="Bewegungsmelder lesen/setzen, z. B. motion_enable=1 motion_level=3")
+    s.add_argument("values", nargs="*", metavar="name=wert")
+
+    s = sub.add_parser("cruise", help="Kurs (Preset-Tour) starten/stoppen/auflisten")
+    s.add_argument("action", choices=["list", "start", "stop"])
+    s.add_argument("index", type=int, nargs="?", default=0)
+
+    s = sub.add_parser("params", help="Einstellungsgruppe lesen (get_params.cgi?type=1..14)")
+    s.add_argument("type", type=int, choices=range(1, 15), metavar="TYPE")
+
+    s = sub.add_parser("log", help="Kamera-Log lesen")
+    s.add_argument("--page", type=int, default=1)
 
     s = sub.add_parser("raw", help="beliebiges CGI aufrufen (Test)")
     s.add_argument("cgi")
@@ -123,7 +145,32 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "urls":
             print("Snapshot:", cam.url(cam._snapshot_path or "/cgi-bin/video_snapshot.cgi"))
             print("MJPEG:   ", cam.mjpeg_url())
-            print("RTSP:    ", cam.rtsp_url(args.rtsp_path), "(Pfad unbestätigt, siehe probe)")
+            print("RTSP:    ", cam.rtsp_url(args.rtsp_path))
+        elif args.cmd == "image":
+            for k, v in (kv.split("=", 1) for kv in args.values):
+                cam.set_camera_var(k, int(v))
+            print(json.dumps(cam.camera_vars(), indent=2))
+        elif args.cmd == "lamp":
+            cam.set_lamp(args.mode)
+            print("Status-LED:", C.LAMP_MODES[args.mode])
+        elif args.cmd == "motion":
+            if args.values:
+                cam.set_motion(**{k: int(v) for k, v in (kv.split("=", 1) for kv in args.values)})
+            print(json.dumps(cam.motion_settings(), indent=2))
+        elif args.cmd == "cruise":
+            if args.action == "list":
+                print(json.dumps(cam.cruise_list(), indent=2, ensure_ascii=False))
+            elif args.action == "start":
+                cam.cruise_start(args.index)
+            else:
+                cam.cruise_stop()
+        elif args.cmd == "params":
+            from .probe import _redact_obj
+            data = cam.params(args.type)
+            print(json.dumps(_redact_obj(data) if args.type in C.SECRET_PARAM_TYPES else data,
+                             indent=2, ensure_ascii=False))
+        elif args.cmd == "log":
+            print(json.dumps(cam.log(args.page), indent=2, ensure_ascii=False))
         elif args.cmd == "raw":
             params = dict(kv.split("=", 1) for kv in args.params)
             if args.force:
